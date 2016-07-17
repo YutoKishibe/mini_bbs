@@ -2,9 +2,9 @@
 SQLI等の脆弱性体験に使用
 
 delete.phpに脆弱性あり
-*参考 http://blog.tokumaru.org/2012/12/blind-sql-injection-php-exploit.html
+*参考　というかほぼ丸写し http://blog.tokumaru.org/2012/12/blind-sql-injection-php-exploit.html
 
-クローン(出来るか分からないが)して、MYSQLにmini_bbsDB作って.sql(DBは入力済みであり、はtokumaru→kishibeにして、その他もいろいろテストしてある)をmysqlに読み込ませて、参考urlの通りやると実験できるはず
+クローン(出来るか分からないが、無理ならzipで落としてxamppにでも入れる)して、MYSQLにmini_bbsDB作って.sql(DBは入力済みであり、はtokumaru→kishibeにして、その他もいろいろテストしてある)をmysqlに読み込ませて、参考urlの通りやると実験できるはず
 
 extractvalue(xmlを解析、処理する関数)でsqlインジェクション攻撃---XMLではないのでエラーとして表示される
 <----------------------------------------------------------------------------------------------------------------------------------------->
